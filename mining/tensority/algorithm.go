@@ -1,6 +1,13 @@
 package tensority
 
+// #cgo CFLAGS: -I.
+// #cgo LDFLAGS: -L./simd/ -l:cSimdTs.o -lstdc++ -lopm
+// #include "./simd/cSimdTs.h"
+import "C"
+
 import (
+	"unsafe"
+
 	"github.com/golang/groupcache/lru"
 
 	"github.com/bytom/crypto/sha3pool"
@@ -9,10 +16,18 @@ import (
 
 const maxAIHashCached = 64
 
-func algorithm(hash, seed *bc.Hash) *bc.Hash {
-	cache := calcSeedCache(seed.Bytes())
-	data := mulMatrix(hash.Bytes(), cache)
-	return hashMatrix(data)
+func algorithm(blockHeader, seed *bc.Hash) *bc.Hash {
+	bhBytes := blockHeader.Bytes()
+	sdBytes := seed.Bytes()
+
+	// Get thearray pointer from the corresponding slice
+	bhPtr := (*C.uchar)(unsafe.Pointer(&bhBytes[0]))
+	seedPtr := (*C.uchar)(unsafe.Pointer(&sdBytes[0]))
+
+	resPtr := C.SimdTs(bhPtr, seedPtr)
+
+	res := bc.NewHash(*(*[32]byte)(unsafe.Pointer(resPtr)))
+	return &res
 }
 
 func calcCacheKey(hash, seed *bc.Hash) *bc.Hash {

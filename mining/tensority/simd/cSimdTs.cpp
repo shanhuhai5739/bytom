@@ -14,6 +14,13 @@ map <vector<uint8_t>, BytomMatList16*> seedCache;
 uint8_t *SimdTs(uint8_t blockheader[32], uint8_t seed[32]){
     vector<uint8_t> seedVec(seed, seed + 32);
 
+    if(seedCache.size() > 64) {
+        for (map <vector<uint8_t>, BytomMatList16*>::iterator it=seedCache.begin(); it!=seedCache.end(); ++it) {
+            delete it->second;
+        }
+        seedCache.clear();
+    }
+
     if(seedCache.find(seedVec) != seedCache.end()) {
         // printf("\t---%s---\n", "Seed already exists in the cache.");
         matList_int16 = seedCache[seedVec];

@@ -1,7 +1,7 @@
 package tensority
 
 // #cgo CFLAGS: -I.
-// #cgo LDFLAGS: -L./simd/ -l:cSimdTs.o -lstdc++ -lopm
+// #cgo LDFLAGS: -L./simd/ -l:cSimdTs.o -lstdc++ -lgomp -lpthread
 // #include "./simd/cSimdTs.h"
 import "C"
 

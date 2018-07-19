@@ -33,7 +33,6 @@ type Fetcher struct {
 
 	// Block cache
 	queue  *prque.Prque              // Queue containing the import operations (block number sorted)
-	queues map[string]int            // Per peer block counts to prevent memory exhaustion
 	queued map[bc.Hash]*blockPending // Set of already queued blocks (to dedup imports)
 }
 
@@ -152,7 +151,7 @@ func (f *Fetcher) insert(peerID string, block *types.Block) {
 		if !ok {
 			return
 		}
-		swPeer := fPeer.getPeer()
+		swPeer := fPeer.GetPeer()
 		if ban := fPeer.addBanScore(20, 0, "block process error"); ban {
 			f.sw.AddBannedPeer(swPeer)
 			f.sw.StopPeerGracefully(swPeer)
@@ -170,7 +169,7 @@ func (f *Fetcher) insert(peerID string, block *types.Block) {
 		if fPeer == nil {
 			continue
 		}
-		swPeer := fPeer.getPeer()
+		swPeer := fPeer.GetPeer()
 		log.Info("Fetcher broadcast block error. Stop peer.")
 		f.sw.StopPeerGracefully(swPeer)
 	}

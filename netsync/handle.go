@@ -24,8 +24,7 @@ import (
 
 //SyncManager Sync Manager is responsible for the business layer information synchronization
 type SyncManager struct {
-	networkID uint64
-	sw        *p2p.Switch
+	sw *p2p.Switch
 
 	privKey     crypto.PrivKeyEd25519 // local node's p2p key
 	chain       *core.Chain
@@ -194,7 +193,7 @@ func (sm *SyncManager) txBroadcastLoop() {
 				if smPeer == nil {
 					continue
 				}
-				swPeer := smPeer.getPeer()
+				swPeer := smPeer.GetPeer()
 				log.Info("Tx broadcast error. Stop Peer.")
 				sm.sw.StopPeerGracefully(swPeer)
 			}
@@ -222,7 +221,7 @@ func (sm *SyncManager) minedBroadcastLoop() {
 				if smPeer == nil {
 					continue
 				}
-				swPeer := smPeer.getPeer()
+				swPeer := smPeer.GetPeer()
 				log.Info("New mined block broadcast error. Stop Peer.")
 				sm.sw.StopPeerGracefully(swPeer)
 			}

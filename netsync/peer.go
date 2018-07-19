@@ -1,11 +1,13 @@
 package netsync
 
 import (
+	"strconv"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/fatih/set.v0"
 
+	"github.com/bytom/consensus"
 	"github.com/bytom/errors"
 	"github.com/bytom/p2p"
 	"github.com/bytom/p2p/trust"
@@ -27,6 +29,7 @@ const (
 type peer struct {
 	mtx      sync.RWMutex
 	version  int // Protocol version negotiated
+	services consensus.ServiceFlag
 	id       string
 	height   uint64
 	hash     *bc.Hash
@@ -38,9 +41,25 @@ type peer struct {
 	knownBlocks *set.Set // Set of block hashes known to be known by this peer
 }
 
+// PeerInfo indicate peer information
+type PeerInfo struct {
+	Id         string `json:"id"`
+	RemoteAddr string `json:"remote_addr"`
+	Height     uint64 `json:"height"`
+	Delay      uint32 `json:"delay"`
+}
+
 func newPeer(height uint64, hash *bc.Hash, Peer *p2p.Peer) *peer {
+	services := consensus.SFFullNode
+	if len(Peer.Other) != 0 {
+		if serviceFlag, err := strconv.ParseUint(Peer.Other[0], 10, 64); err != nil {
+			services = consensus.ServiceFlag(serviceFlag)
+		}
+	}
+
 	return &peer{
 		version:     defaultVersion,
+		services:    services,
 		id:          Peer.Key,
 		height:      height,
 		hash:        hash,
@@ -92,11 +111,23 @@ func (p *peer) SendTransactions(txs []*types.Tx) error {
 	return nil
 }
 
-func (p *peer) getPeer() *p2p.Peer {
+func (p *peer) GetPeer() *p2p.Peer {
 	p.mtx.RLock()
 	defer p.mtx.RUnlock()
 
 	return p.swPeer
+}
+
+
+func (p *peer) GetPeerInfo() *PeerInfo {
+	p.mtx.RLock()
+	defer p.mtx.RUnlock()
+	return &PeerInfo{
+		Id:         p.id,
+		RemoteAddr: p.swPeer.RemoteAddr,
+		Height:     p.height,
+		Delay:      0, // TODO
+	}
 }
 
 // MarkTransaction marks a transaction as known for the peer, ensuring that it
@@ -200,6 +231,16 @@ func (ps *peerSet) Peer(id string) (*peer, bool) {
 	defer ps.lock.RUnlock()
 	p, ok := ps.peers[id]
 	return p, ok
+}
+
+
+// getPeerInfos return all peer information of current node
+func (ps *peerSet) GetPeerInfos() []*PeerInfo {
+	var peerInfos []*PeerInfo
+	for _, peer := range ps.peers {
+		peerInfos = append(peerInfos, peer.GetPeerInfo())
+	}
+	return peerInfos
 }
 
 // Len returns if the current number of peers in the set.

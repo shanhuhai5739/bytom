@@ -6,8 +6,8 @@ package tensority
 import "C"
 
 import (
-	"log"
-	"time"
+	// "log"
+	// "time"
 	"unsafe"
 
 	"github.com/golang/groupcache/lru"
@@ -19,7 +19,7 @@ import (
 const maxAIHashCached = 64
 
 func algorithm(blockHeader, seed *bc.Hash) *bc.Hash {
-	tStart := time.Now()
+	// tStart := time.Now()
 
 	bhBytes := blockHeader.Bytes()
 	sdBytes := seed.Bytes()
@@ -32,7 +32,7 @@ func algorithm(blockHeader, seed *bc.Hash) *bc.Hash {
 
 	res := bc.NewHash(*(*[32]byte)(unsafe.Pointer(resPtr)))
 
-	log.Printf("time used: %v", time.Since(tStart))
+	// log.Printf("time used: %v", time.Since(tStart))
 	return &res
 }
 

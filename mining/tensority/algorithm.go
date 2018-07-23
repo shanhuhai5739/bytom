@@ -12,9 +12,9 @@ import (
 
 	"github.com/bytom/crypto/sha3pool"
 	"github.com/bytom/protocol/bc"
-	"time"
+	// "time"
 	"sync/atomic"
-	"log"
+	// "log"
 )
 
 const maxAIHashCached = 64
@@ -25,7 +25,7 @@ const segementNumSimd = 20000  //the same with cSimdTs2.cpp resultarr
 var lockArraySimd = [20000]int32{0}
 
 func algorithm(blockHeader, seed *bc.Hash) *bc.Hash {
-	timeNow := time.Now()
+	// timeNow := time.Now()
 
 
 	bhBytes := blockHeader.Bytes()
@@ -61,7 +61,7 @@ func algorithm(blockHeader, seed *bc.Hash) *bc.Hash {
 
 		//log.Printf("remove lock flag %v  num:%v",mode,num)
 		
-		log.Printf("nolock use time %v,mode:%v,num:%v",time.Since(timeNow),mode,num)
+		// log.Printf("nolock use time %v,mode:%v,num:%v",time.Since(timeNow),mode,num)
 		return &res
 	}else {
 		//there are 20000 req is handling,may be some problem happen.
@@ -71,7 +71,7 @@ func algorithm(blockHeader, seed *bc.Hash) *bc.Hash {
 
 		res := bc.NewHash(*(*[32]byte)(unsafe.Pointer(resPtr)))
 		
-		log.Printf("lock use time %v,mode:%v",time.Since(timeNow),mode)
+		// log.Printf("lock use time %v,mode:%v",time.Since(timeNow),mode)
 		return &res
 	}
 }

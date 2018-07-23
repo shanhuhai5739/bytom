@@ -39,6 +39,7 @@ all: test target release-all
 
 bytomd:
 	@echo "Building bytomd to cmd/bytomd/bytomd"
+	@cd mining/tensority/simd/ && make
 	@go build $(BUILD_FLAGS) -o cmd/bytomd/bytomd cmd/bytomd/main.go
 
 bytomcli:

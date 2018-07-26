@@ -53,6 +53,12 @@ func (a *Cache) AddCache(hash, seed, result *bc.Hash) {
 	a.lruCache.Add(*key, result)
 }
 
+// RemoveCache clean the cached result
+func (a *Cache) RemoveCache(hash, seed *bc.Hash) {
+	key := calcCacheKey(hash, seed)
+	a.lruCache.Remove(key)
+}
+
 // Hash is the real entry for call tensority algorithm
 func (a *Cache) Hash(hash, seed *bc.Hash) *bc.Hash {
 	key := calcCacheKey(hash, seed)
@@ -62,5 +68,7 @@ func (a *Cache) Hash(hash, seed *bc.Hash) *bc.Hash {
 	return algorithm(hash, seed)
 }
 
-// AIHash is created for let different package share same cache
-var AIHash = NewCache()
+var (
+	AIHash  = NewCache() // AIHash is created for let different package share same cache
+	UseSIMD = false
+)

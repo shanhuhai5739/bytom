@@ -7,24 +7,58 @@ import (
 
 	"github.com/bytom/protocol/bc"
 	"github.com/bytom/protocol/bc/types"
-	"sort"
+	"time"
 )
 
-var defaultOrphanCap int = 1024
+var (
+	orphanTTL                = 10 * time.Minute
+	orphanExpireScanInterval = 3 * time.Minute
+)
+
+type OrphanTx struct {
+	orphanBlock *types.Block
+	expiration  time.Time
+}
 
 // OrphanManage is use to handle all the orphan block
 type OrphanManage struct {
-	orphan      map[bc.Hash]*types.Block
+	orphan      map[bc.Hash]*OrphanTx
 	prevOrphans map[bc.Hash][]*bc.Hash
-	cap         int
 	mtx         sync.RWMutex
 }
 
 // NewOrphanManage return a new orphan block
 func NewOrphanManage() *OrphanManage {
-	return &OrphanManage{
-		orphan:      make(map[bc.Hash]*types.Block, defaultOrphanCap),
-		prevOrphans: make(map[bc.Hash][]*bc.Hash, defaultOrphanCap),
+	o := &OrphanManage{
+		orphan:      make(map[bc.Hash]*OrphanTx),
+		prevOrphans: make(map[bc.Hash][]*bc.Hash),
+	}
+
+	go o.orphanExpireWorker()
+	return o
+}
+
+func (o *OrphanManage) orphanExpireWorker() {
+	ticker := time.NewTicker(orphanExpireScanInterval)
+	for now := range ticker.C {
+		o.orphanExpire(now)
+	}
+	ticker.Stop()
+}
+
+func (o *OrphanManage) orphanExpire(now time.Time) {
+	var orphans []bc.Hash
+
+	o.mtx.RLock()
+	for hash, orphan := range o.orphan {
+		if orphan.expiration.Before(now) {
+			orphans = append(orphans, hash)
+		}
+	}
+	o.mtx.RUnlock()
+
+	for _, hash := range orphans {
+		o.Delete(&hash)
 	}
 }
 
@@ -39,35 +73,15 @@ func (o *OrphanManage) BlockExist(hash *bc.Hash) bool {
 // Add will add the block to OrphanManage
 func (o *OrphanManage) Add(block *types.Block) {
 	blockHash := block.Hash()
-	var lruBlockHash *bc.Hash
-
 	o.mtx.Lock()
+	defer o.mtx.Unlock()
+
 	if _, ok := o.orphan[blockHash]; ok {
 		return
 	}
 
-	o.cap++
-	o.orphan[blockHash] = block
+	o.orphan[blockHash] = &OrphanTx{block, time.Now().Add(orphanTTL)}
 	o.prevOrphans[block.PreviousBlockHash] = append(o.prevOrphans[block.PreviousBlockHash], &blockHash)
-
-	// if the cap is full then the old one will be recycled
-	if o.cap >= defaultOrphanCap {
-		var blocks []*types.Block
-		for _, b := range o.orphan {
-			blocks = append(blocks, b)
-		}
-		sort.Slice(blocks, func(i, j int) bool {
-			return blocks[i].Height < blocks[j].Height
-		})
-
-		oldBlockHash := blocks[0].Hash()
-		lruBlockHash = &oldBlockHash
-	}
-	o.mtx.Unlock()
-
-	if lruBlockHash != nil {
-		o.Delete(lruBlockHash)
-	}
 
 	log.WithFields(log.Fields{"hash": blockHash.String(), "height": block.Height}).Info("add block to orphan")
 }
@@ -80,18 +94,17 @@ func (o *OrphanManage) Delete(hash *bc.Hash) {
 	if !ok {
 		return
 	}
-	o.cap--
 	delete(o.orphan, *hash)
 
-	prevOrphans, ok := o.prevOrphans[block.PreviousBlockHash]
+	prevOrphans, ok := o.prevOrphans[block.orphanBlock.PreviousBlockHash]
 	if !ok || len(prevOrphans) == 1 {
-		delete(o.prevOrphans, block.PreviousBlockHash)
+		delete(o.prevOrphans, block.orphanBlock.PreviousBlockHash)
 		return
 	}
 
 	for i, preOrphan := range prevOrphans {
 		if preOrphan == hash {
-			o.prevOrphans[block.PreviousBlockHash] = append(prevOrphans[:i], prevOrphans[i+1:]...)
+			o.prevOrphans[block.orphanBlock.PreviousBlockHash] = append(prevOrphans[:i], prevOrphans[i+1:]...)
 			return
 		}
 	}
@@ -102,7 +115,7 @@ func (o *OrphanManage) Get(hash *bc.Hash) (*types.Block, bool) {
 	o.mtx.RLock()
 	block, ok := o.orphan[*hash]
 	o.mtx.RUnlock()
-	return block, ok
+	return block.orphanBlock, ok
 }
 
 // GetPrevOrphans return the list of child orphans
